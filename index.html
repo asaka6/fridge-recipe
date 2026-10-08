@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="冷蔵庫の写真から食材を読み取って、作れるレシピを3つ提案します。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='7' y='3' width='18' height='26' rx='4' fill='none' stroke='%232E7650' stroke-width='3'/%3E%3Cpath d='M20 9v6' stroke='%232E7650' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>冷蔵庫レシピ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+img{max-width:100%}[hidden]{display:none!important}
+body{margin:0}
+:root{
+  --bg:#EEF3F1; --surface:#FFFFFF; --surface-2:#E3ECE8; --ink:#17251F; --muted:#5B6E66;
+  --line:#CFDCD6; --herb:#2E7650; --herb-ink:#FFFFFF; --herb-soft:#D6EBDF;
+  --yolk:#F2C14E; --yolk-soft:#FBEFCB; --yolk-ink:#4A3708; --warn:#B4442C;
+  --shadow:0 1px 2px rgba(23,37,31,.06),0 6px 20px rgba(23,37,31,.06);
+  --display:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+  --body:"Noto Sans JP","Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#111916; --surface:#18231F; --surface-2:#22302A; --ink:#E6EFEA; --muted:#93A69D;
+  --line:#2E3E37; --herb:#5DBB86; --herb-ink:#0C1611; --herb-soft:#1F3A2C;
+  --yolk:#E9B949; --yolk-soft:#3A3018; --yolk-ink:#F6E3AE; --warn:#F08A70;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#111916; --surface:#18231F; --surface-2:#22302A; --ink:#E6EFEA; --muted:#93A69D;
+  --line:#2E3E37; --herb:#5DBB86; --herb-ink:#0C1611; --herb-soft:#1F3A2C;
+  --yolk:#E9B949; --yolk-soft:#3A3018; --yolk-ink:#F6E3AE; --warn:#F08A70;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:clip}
+body{overflow-x:clip;overflow-wrap:anywhere;background:var(--bg);color:var(--ink);font:15px/1.7 var(--body);padding-inline:16px;padding-block:24px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+.wrap>*,.panel>*,.cards>*,.history>*{min-width:0}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font:900 clamp(28px,5vw,40px)/1.15 var(--display);margin:0;letter-spacing:.02em;text-wrap:balance}
+h1 .door{display:inline-block;width:.62em;height:.9em;border:3px solid var(--herb);border-radius:6px;vertical-align:-.08em;margin-right:.25em;position:relative}
+h1 .door::after{content:"";position:absolute;right:4px;top:22%;width:3px;height:30%;background:var(--herb);border-radius:2px}
+.lede{margin:4px 0 0;color:var(--muted);max-width:60ch}
+h2{font:700 18px/1.3 var(--display);margin:0;letter-spacing:.03em}
+.label{font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.panel{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.input-panel{grid-template-columns:minmax(0,1fr);gap:20px}
+.col{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-content:start;min-width:0}
+@media (min-width:760px){.input-panel{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}}
+.section{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+
+/* upload */
+.drop{position:relative;border:2px dashed var(--line);border-radius:12px;background:var(--surface-2);min-height:150px;max-width:100%;display:grid;place-items:center;overflow:hidden;cursor:pointer;transition:border-color .15s}
+.drop:hover,.drop.over{border-color:var(--herb)}
+.drop:focus-within{outline:3px solid var(--herb);outline-offset:2px}
+.drop .hint{text-align:center;color:var(--muted);padding:16px;display:grid;gap:4px;z-index:1}
+.drop .hint b{color:var(--ink);font-family:var(--display);font-size:16px}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop.has-img{min-height:0}
+.drop.has-img .hint{padding:10px;gap:0}
+.drop.has-img .hint span{font-size:12px}
+
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.thumbs:empty{display:none}
+.th{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line)}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th .n{position:absolute;left:6px;top:6px;font:500 11px var(--mono);background:rgba(0,0,0,.55);color:#fff;border-radius:5px;padding:0 6px}
+.th button{position:absolute;right:4px;top:4px;width:26px;height:26px;padding:0;border-radius:999px;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:16px;line-height:1}
+.th button:hover{background:var(--warn)}
+.count{font:500 12px var(--mono);color:var(--muted)}
+
+.pick-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.pick{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:9px 6px;white-space:nowrap;font-size:14px;cursor:pointer;font-weight:500;background:var(--surface)}
+.pick:hover{border-color:var(--herb)}
+.pick.cam{background:var(--herb-soft);border-color:var(--herb);color:var(--ink)}
+.pick-row:focus-within .pick{outline:none}
+#cam:focus-visible + .pick,.pick:focus-within{outline:3px solid var(--herb);outline-offset:2px}
+.sr-only{position:absolute;left:0;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.camnote{margin:-6px 0 0;font-size:12px;color:var(--muted)}
+.filters{display:grid;gap:10px}
+.range{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.range label{font-size:13px;font-weight:500;min-width:4.5em}
+.range output{font:500 13px var(--mono);font-variant-numeric:tabular-nums;min-width:5.5em;text-align:right}
+input[type=range]{accent-color:var(--herb);width:100%;min-width:0;margin:0}
+.toggles{display:flex;flex-wrap:wrap;gap:8px}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--herb)}
+
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px}
+button:focus-visible{outline:3px solid var(--herb);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.primary{background:var(--herb);color:var(--herb-ink);border-color:var(--herb);font-weight:700;font-family:var(--display);font-size:16px;padding:12px 16px;width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0}
+.ghost{background:transparent}
+.small{font-size:13px;padding:5px 10px}
+
+.status{font-size:13px;color:var(--muted);min-height:1.4em}
+.status.err{color:var(--warn)}
+.dots::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
+@media (prefers-reduced-motion:reduce){.dots::after{animation:none;content:"…"}}
+
+/* ingredients */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--herb-soft);color:var(--ink);border-radius:999px;padding:3px 4px 3px 12px;font-size:14px}
+.chip small{color:var(--muted);font-size:12px}
+.chip.unsure{background:var(--yolk-soft);color:var(--yolk-ink)}
+.chip button{border:0;background:transparent;padding:0 6px;font-size:16px;line-height:1;color:var(--muted);border-radius:999px}
+.chip button:hover{color:var(--warn)}
+.add{display:flex;gap:6px}
+.add input{flex:1;min-width:0;font:inherit;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.legend{font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+
+/* recipes */
+.recipes-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.badge{font-size:12px;background:var(--yolk);color:#3A2B05;border-radius:6px;padding:2px 8px;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px;align-items:start}
+.card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px 20px;display:grid;gap:12px}
+.card-top{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+.num{font:900 28px/1 var(--display);color:var(--herb);padding-top:2px}
+.card h3{font:700 20px/1.35 var(--display);margin:0;text-wrap:balance}
+.card .desc{margin:2px 0 0;color:var(--muted);font-size:14px}
+.meta{display:flex;flex-wrap:wrap;gap:8px}
+.meta span{font:500 13px var(--mono);font-variant-numeric:tabular-nums;background:var(--surface-2);border-radius:6px;padding:2px 8px}
+.uses{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));gap:12px}
+.uses ul{margin:4px 0 0;padding-left:1.2em;font-size:14px}
+.uses .extra li{color:var(--muted)}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--herb)}
+details ol{margin:8px 0 0;padding-left:1.4em;display:grid;gap:4px;max-width:65ch}
+.tip{font-size:13px;background:var(--yolk-soft);color:var(--yolk-ink);border-radius:8px;padding:8px 12px;margin-top:8px}
+.empty{color:var(--muted);text-align:center;padding:32px 16px;border:1px dashed var(--line);border-radius:14px}
+
+/* history */
+.history{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:12px}
+.hist{min-width:0;width:100%;display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;align-items:center;text-align:left;padding:8px;border-radius:12px;background:var(--surface)}
+.hist:hover{border-color:var(--herb)}
+.hist img,.hist .noimg{width:64px;height:64px;border-radius:8px;object-fit:cover;background:var(--surface-2)}
+.hist b{display:block;font-size:13px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist span{font:500 12px var(--mono);color:var(--muted)}
+.hist-wrap{display:grid;gap:12px}
+.ing-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.ing-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+@media (min-width:760px){.ing-tools{grid-template-columns:minmax(0,1fr) auto}}
+@media (max-width:480px){
+  body{padding-inline:12px;font-size:14px}
+  .panel{padding:14px;border-radius:12px}
+  .card{padding:14px}
+  .card-top{gap:10px}
+  .card h3{font-size:18px}
+}
+.keybox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;gap:10px}
+.keybox.need{border-color:var(--yolk);background:var(--yolk-soft);color:var(--yolk-ink)}
+.keybox h2{font-size:16px}
+.keybox ol{margin:0;padding-left:1.4em;font-size:14px;display:grid;gap:2px}
+.keybox a{color:var(--herb);font-weight:700}
+.keybox.need a{color:inherit}
+.keyrow{display:flex;gap:8px;flex-wrap:wrap}
+.keyrow input{flex:1 1 220px;min-width:0;font:500 14px var(--mono);padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.keynote{font-size:12px;color:var(--muted);margin:0}
+.keybox.need .keynote{color:inherit;opacity:.85}
+.keyok{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.unavailable{background:var(--yolk-soft);color:var(--yolk-ink);border-radius:10px;padding:10px 14px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="door" aria-hidden="true"></span>冷蔵庫レシピ</h1>
+      <p class="lede">冷蔵庫の中を撮った写真をアップロードすると、写っている食材を読み取って、それで作れるレシピを3つ提案します。段ごと・野菜室・冷凍庫など、写真は複数枚まとめて送れます。</p>
+    </div>
+  </header>
+
+  <section class="keybox" id="keyBox">
+    <div id="keyNeed">
+      <h2>はじめに：無料のAIキーを1回だけ設定</h2>
+      <ol>
+        <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio のキー作成ページ</a>を開いて、Googleアカウントでログイン</li>
+        <li>「APIキーを作成」を押して、出てきたキー（AIza… で始まる文字列）をコピー</li>
+        <li>下に貼り付けて「保存」</li>
+      </ol>
+      <form class="keyrow" id="keyForm" style="margin-top:8px">
+        <input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" aria-label="Gemini APIキー">
+        <button class="small" type="submit">保存</button>
+      </form>
+      <p class="keynote">キーはこの端末のブラウザにだけ保存され、Google以外には送られません。無料枠では、送った写真や文章がGoogleのAI改善に使われることがあります。</p>
+    </div>
+    <div class="keyok" id="keyOk" hidden>
+      <span>AI：Google Gemini（無料枠）・キー設定済み</span>
+      <button class="small ghost" id="keyClear" type="button">キーを変更</button>
+    </div>
+  </section>
+
+  <section class="panel input-panel" aria-label="写真と条件">
+    <div class="col">
+      <span class="label">① 冷蔵庫の写真</span>
+      <div class="drop" id="drop">
+        <div class="hint"><b id="dropTitle">写真を選ぶ／ここにドロップ</b><span id="dropSub">複数枚OK・JPEG・PNG・WebP</span></div>
+        <input type="file" id="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" aria-label="冷蔵庫の写真を選ぶ（複数可）">
+      </div>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="pick-row">
+        <label class="pick cam" for="cam">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          カメラで撮る
+        </label>
+        <input type="file" id="cam" accept="image/*" capture="environment" class="sr-only">
+        <label class="pick" for="file">写真を選ぶ</label>
+      </div>
+      <p class="camnote">「カメラで撮る」は押すたびに1枚ずつ追加されます。<span id="maxNote"></span></p>
+    </div>
+
+    <div class="col">
+      <div class="filters">
+        <span class="label">② 条件</span>
+        <div class="range">
+          <label for="time">調理時間</label>
+          <input type="range" id="time" min="10" max="90" step="5" value="30">
+          <output id="timeOut" for="time">30分以内</output>
+        </div>
+        <div class="range">
+          <label for="kcal">カロリー</label>
+          <input type="range" id="kcal" min="200" max="1200" step="50" value="1200">
+          <output id="kcalOut" for="kcal">指定なし</output>
+        </div>
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="onlyFridge"> 買い足しなし</label>
+          <label class="toggle"><input type="checkbox" id="oneServing" checked> 1人分</label>
+        </div>
+      </div>
+
+      <button class="primary" id="go" disabled>食材を読み取ってレシピを出す</button>
+      <div class="row" id="busyRow" hidden>
+        <span class="status dots" id="busyText">写真を見ています</span>
+        <button class="small ghost" id="stop">中止</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="見つかった食材">
+    <div class="ing-head">
+      <h2>見つかった食材</h2>
+      <span class="legend"><span><i style="background:var(--herb-soft)"></i>確実</span><span><i style="background:var(--yolk-soft)"></i>たぶん</span></span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="ing-tools">
+      <form class="add" id="addForm">
+        <input id="addInput" placeholder="食材を追加（例：卵）" aria-label="食材を追加">
+        <button class="small" type="submit">追加</button>
+      </form>
+      <button class="small" id="regen" disabled>この食材と条件でレシピを出し直す</button>
+    </div>
+  </section>
+
+  <section class="section" aria-label="レシピ">
+    <div class="recipes-head">
+      <h2>レシピ3案</h2>
+      <span class="badge" id="sampleBadge">表示例</span>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section class="hist-wrap">
+    <div class="row" style="justify-content:space-between">
+      <h2>履歴</h2>
+      <button class="small ghost" id="clearHist" hidden>履歴を消す</button>
+    </div>
+    <div class="history" id="history"></div>
+    <p class="status" id="histNote">履歴はこのブラウザにだけ保存されます（最大20件）。</p>
+  </section>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const HIST_KEY = "fridge-recipe-history-v1";
+
+const SAMPLE = {
+  ingredients:[
+    {name:"卵",amount:"6個",sure:true},{name:"キャベツ",amount:"1/2玉",sure:true},
+    {name:"豚こま肉",amount:"約200g",sure:true},{name:"にんじん",amount:"1本",sure:true},
+    {name:"牛乳",amount:"1本",sure:true},{name:"ピーマン",amount:"2個",sure:false},
+    {name:"納豆",amount:"2パック",sure:true},{name:"ねぎ",amount:"1本",sure:false}
+  ],
+  recipes:[
+    {title:"豚キャベツのしょうが焼き炒め",desc:"フライパン1つ、ご飯が進む甘辛味。",time:15,kcal:480,uses:["豚こま肉 100g","キャベツ 1/8玉","にんじん 1/3本"],extra:["しょうがチューブ","しょうゆ・みりん"],steps:["キャベツはざく切り、にんじんは短冊切りにする。","豚肉を中火で炒め、色が変わったら野菜を加える。","しょうゆ・みりん各大さじ1としょうがを入れて絡める。"],tip:"豚肉に片栗粉を薄くまぶすとタレがよく絡みます。"},
+    {title:"納豆ねぎ入りふわふわ卵焼き",desc:"朝ごはんにもお弁当にも。",time:10,kcal:290,uses:["卵 2個","納豆 1パック","ねぎ 5cm"],extra:["付属のタレ"],steps:["卵を溶き、納豆とタレ、刻んだねぎを混ぜる。","油を熱したフライパンに流し、大きく混ぜて半熟で巻く。"],tip:"納豆は先によく混ぜて粘りを出すとまとまりやすいです。"},
+    {title:"キャベツとにんじんのミルクスープ",desc:"牛乳でまろやか、野菜をたっぷり消費。",time:20,kcal:250,uses:["キャベツ 1/8玉","にんじん 1/3本","牛乳 200ml","ピーマン 1個"],extra:["コンソメ","塩こしょう"],steps:["野菜を1cm角に切る。","水150mlとコンソメで5分煮る。","牛乳を加えて温め、塩こしょうで味を整える（沸騰させない）。"],tip:"豚肉を少し入れると主菜にもなります。"}
+  ]
+};
+
+let state = { ingredients: SAMPLE.ingredients.slice(), recipes: SAMPLE.recipes, isSample: true };
+// photos: [{file, url}] — the images sent together in one call
+let photos = [], histThumb = null, ctl = null;
+const maxCount = 6;
+const KEY_KEY = "fridge-recipe-gemini-key";
+let apiKey = (()=>{ try{ return localStorage.getItem(KEY_KEY)||""; }catch{ return ""; } })();
+
+/* ---------- storage (best effort) ---------- */
+function loadHist(){ try{ return JSON.parse(localStorage.getItem(HIST_KEY)||"[]"); }catch{ return []; } }
+function saveHist(list){ try{ localStorage.setItem(HIST_KEY, JSON.stringify(list)); return true; }catch{ return false; } }
+
+/* ---------- filters ---------- */
+function syncFilters(){
+  const t = +$("time").value, k = +$("kcal").value;
+  $("timeOut").textContent = t>=90 ? "指定なし" : `${t}分以内`;
+  $("kcalOut").textContent = k>=1200 ? "指定なし" : `${k}kcal以下`;
+}
+["time","kcal"].forEach(id => $(id).addEventListener("input", syncFilters));
+syncFilters();
+
+/* ---------- render ---------- */
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function renderChips(){
+  const el = $("chips");
+  if(!state.ingredients.length){ el.innerHTML = '<span class="status">まだ食材がありません</span>'; return; }
+  el.innerHTML = state.ingredients.map((g,i)=>
+    `<span class="chip${g.sure===false?" unsure":""}">${esc(g.name)}${g.amount?` <small>${esc(g.amount)}</small>`:""}<button aria-label="${esc(g.name)}を外す" data-i="${i}">×</button></span>`).join("");
+}
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest("button[data-i]"); if(!b) return;
+  state.ingredients.splice(+b.dataset.i,1); renderChips(); updateButtons();
+});
+$("addForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("addInput").value.trim(); if(!v) return;
+  state.ingredients.push({name:v, amount:"", sure:true});
+  $("addInput").value=""; renderChips(); updateButtons();
+});
+
+function renderCards(){
+  $("sampleBadge").hidden = !state.isSample;
+  const el = $("cards");
+  if(!state.recipes.length){ el.innerHTML = '<div class="empty">条件に合うレシピがありませんでした。条件をゆるめて出し直してください。</div>'; return; }
+  el.innerHTML = state.recipes.map((r,i)=>`
+    <article class="card">
+      <div class="card-top">
+        <div class="num">${i+1}</div>
+        <div>
+          <h3>${esc(r.title)}</h3>
+          ${r.desc?`<p class="desc">${esc(r.desc)}</p>`:""}
+        </div>
+      </div>
+      <div class="meta">
+        <span>⏱ ${esc(r.time)}分</span>
+        <span>${esc(r.kcal)}kcal</span>
+        ${r.servings?`<span>${esc(r.servings)}人分</span>`:""}
+      </div>
+      <div class="uses">
+        <div><span class="label">冷蔵庫から</span><ul>${(r.uses||[]).map(u=>`<li>${esc(u)}</li>`).join("")}</ul></div>
+        <div class="extra"><span class="label">調味料・買い足し</span><ul>${(r.extra||[]).length?(r.extra||[]).map(u=>`<li>${esc(u)}</li>`).join(""):"<li>なし</li>"}</ul></div>
+      </div>
+      <details${i===0?" open":""}>
+        <summary>作り方</summary>
+        <ol>${(r.steps||[]).map(s=>`<li>${esc(s)}</li>`).join("")}</ol>
+        ${r.tip?`<div class="tip">${esc(r.tip)}</div>`:""}
+      </details>
+    </article>`).join("");
+}
+
+function renderPhotos(){
+  const el = $("thumbs");
+  if(photos.length){
+    el.innerHTML = photos.map((p,i)=>`<div class="th"><img src="${p.url}" alt="${i+1}枚目の写真"><span class="n">${i+1}</span><button type="button" data-p="${i}" aria-label="${i+1}枚目を外す">×</button></div>`).join("");
+  }else if(histThumb){
+    el.innerHTML = `<div class="th"><img src="${histThumb}" alt="履歴の写真"></div>`;
+  }else el.innerHTML = "";
+  const n = photos.length;
+  $("drop").classList.toggle("has-img", n>0);
+  $("dropTitle").textContent = n ? (n>=maxCount ? `${n}枚選択中（上限）` : `写真を追加（${n}/${maxCount}枚）`) : "写真を選ぶ／ここにドロップ";
+  $("dropSub").textContent = n ? "同じ冷蔵庫の別の段・野菜室など" : "複数枚OK・JPEG・PNG・WebP";
+}
+$("thumbs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-p]"); if(!b) return;
+  const [p] = photos.splice(+b.dataset.p,1); URL.revokeObjectURL(p.url);
+  renderPhotos(); updateButtons();
+  setStatus(photos.length ? `写真は${photos.length}枚です。` : "");
+});
+
+function renderHistory(){
+  const list = loadHist(), el = $("history");
+  $("clearHist").hidden = !list.length;
+  if(!list.length){ el.innerHTML = '<div class="empty" style="grid-column:1/-1">まだ履歴はありません。写真を解析すると、ここに残ります。</div>'; return; }
+  el.innerHTML = list.map((h,i)=>{
+    const d = new Date(h.at);
+    const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    return `<button class="hist" data-h="${i}">
+      ${h.thumb?`<img src="${h.thumb}" alt="">`:'<div class="noimg"></div>'}
+      <div style="min-width:0"><b>${esc((h.recipes||[]).map(r=>r.title).join("／"))}</b><span>${when}・${h.photos>1?`写真${h.photos}枚・`:""}食材${(h.ingredients||[]).length}品</span></div>
+    </button>`;
+  }).join("");
+}
+$("history").addEventListener("click", e => {
+  const b = e.target.closest("button[data-h]"); if(!b) return;
+  const h = loadHist()[+b.dataset.h]; if(!h) return;
+  state = { ingredients: h.ingredients.slice(), recipes: h.recipes, isSample:false };
+  clearPhotos(); histThumb = h.thumb||null;
+  renderPhotos(); renderChips(); renderCards(); updateButtons();
+  setStatus(`${new Date(h.at).toLocaleString("ja-JP")} の結果を表示しています。`);
+  document.querySelector(".cards").scrollIntoView({behavior:"smooth",block:"start"});
+});
+$("clearHist").addEventListener("click", () => {
+  const btn = $("clearHist");
+  if(btn.dataset.confirm){ try{ localStorage.removeItem(HIST_KEY); }catch{} delete btn.dataset.confirm; btn.textContent="履歴を消す"; renderHistory(); }
+  else { btn.dataset.confirm="1"; btn.textContent="本当に消す？もう一度押す"; setTimeout(()=>{ delete btn.dataset.confirm; btn.textContent="履歴を消す"; },4000); }
+});
+
+function setStatus(msg, err){ $("status").textContent = msg||""; $("status").classList.toggle("err", !!err); }
+function updateButtons(){
+  const busy = !!ctl;
+  $("go").disabled = busy || !photos.length || !apiKey;
+  $("go").textContent = photos.length>1 ? `${photos.length}枚から食材を読み取ってレシピを出す` : "食材を読み取ってレシピを出す";
+  $("regen").disabled = busy || !apiKey || !state.ingredients.length;
+  $("busyRow").hidden = !busy;
+}
+
+/* ---------- file pick ---------- */
+async function makeThumb(blob){
+  try{
+    const url = URL.createObjectURL(blob);
+    const img = new Image(); img.src = url; await img.decode();
+    const s = 160, c = document.createElement("canvas"); c.width=c.height=s;
+    const r = Math.max(s/img.naturalWidth, s/img.naturalHeight);
+    const w = img.naturalWidth*r, h = img.naturalHeight*r;
+    c.getContext("2d").drawImage(img,(s-w)/2,(s-h)/2,w,h);
+    URL.revokeObjectURL(url);
+    return c.toDataURL("image/jpeg",0.7);
+  }catch{ return null; }
+}
+function clearPhotos(){ photos.forEach(p=>URL.revokeObjectURL(p.url)); photos = []; }
+function addFiles(list){
+  const all = Array.from(list||[]); if(!all.length) return;
+  const imgs = all.filter(f=>/^image\//.test(f.type));
+  const key = f => `${f.name}|${f.size}|${f.lastModified}`;
+  const have = new Set(photos.map(p=>key(p.file)));
+  let added = 0, dup = 0, over = 0;
+  for(const f of imgs){
+    if(have.has(key(f))){ dup++; continue; }
+    if(photos.length >= maxCount){ over++; continue; }
+    photos.push({file:f, url:URL.createObjectURL(f)}); have.add(key(f)); added++;
+  }
+  if(added) histThumb = null;
+  renderPhotos(); updateButtons();
+  const notes = [];
+  if(all.length > imgs.length) notes.push("画像以外のファイルは外しました");
+  if(dup) notes.push(`同じ写真${dup}枚は追加しませんでした`);
+  if(over) notes.push(`1回に送れるのは${maxCount}枚までです（${over}枚は追加していません）`);
+  if(notes.length) setStatus(notes.join("。")+"。", true);
+  else if(added) setStatus(`写真${photos.length}枚。追加するか「食材を読み取ってレシピを出す」を押してください。`);
+}
+$("file").addEventListener("change", e => { addFiles(e.target.files); e.target.value=""; });
+$("cam").addEventListener("change", e => { addFiles(e.target.files); e.target.value=""; });
+const drop = $("drop");
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
+
+/* ---------- AI ---------- */
+function conditions(){
+  const t = +$("time").value, k = +$("kcal").value, c = [];
+  if(t<90) c.push(`調理時間は${t}分以内`);
+  if(k<1200) c.push(`1人分のカロリーは${k}kcal以下`);
+  if($("onlyFridge").checked) c.push("調味料（塩・砂糖・しょうゆ・味噌・酢・油・コンソメなど）以外の買い足しは一切しない");
+  c.push($("oneServing").checked ? "分量は1人分" : "分量は2人分");
+  return c;
+}
+const RECIPE_SPEC = `"recipes": ちょうど3件。それぞれ {"title": 料理名, "desc": 一言説明(30字以内), "time": 調理時間(分,整数), "kcal": 1人分の推定カロリー(整数), "servings": 人数(整数), "uses": ["冷蔵庫の食材 分量", ...], "extra": ["使う調味料や買い足す物", ...], "steps": ["手順", ...(3〜6個)], "tip": コツ一言}
+3案は主菜・副菜・汁物など種類をばらけさせ、写っている食材をなるべく多く使うこと。`;
+
+function errCopy(e){
+  switch(e?.code){
+    case "no_key": return "先に上の欄でAIキーを設定してください。";
+    case "bad_key": return "AIキーが正しくないようです。上の「キーを変更」から貼り直してください。";
+    case "rate_limited": return "無料枠の回数制限に当たりました。1分ほど待ってからもう一度押してください（1日の上限なら翌日まで使えません）。";
+    case "image_rejected": return "読み込めない写真がありました。別の写真（JPEG/PNG）を選んでください。";
+    case "invalid_json": return "AIの返答を読み取れませんでした。もう一度押してください。";
+    case "refused": return "この写真では提案できませんでした。冷蔵庫の中が写った別の写真を試してください。";
+    case "offline": return "ネットにつながっていないようです。";
+    default: return "AIとの通信に失敗しました。少し待ってもう一度押してください。" + (e?.message && e.message!==e.code ? `（${e.message}）` : "");
+  }
+}
+
+/* ---------- Gemini ---------- */
+// Newest first; on "model not found" or that model's quota running out, fall through to the next.
+const MODELS = ["gemini-3.8-flash","gemini-3.5-flash","gemini-3.1-flash-lite","gemini-flash-latest"];
+const fail = (code, message) => Object.assign(new Error(message||code), {code});
+
+async function toJpegBase64(file){
+  let bmp;
+  try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
+  catch{ throw fail("image_rejected"); }
+  const max = 1600, r = Math.min(1, max/Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width*r); c.height = Math.round(bmp.height*r);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  return c.toDataURL("image/jpeg", 0.85).split(",")[1];
+}
+
+function parseJson(text){
+  const t = String(text||"").replace(/^\s*```(?:json)?/i,"").replace(/```\s*$/,"").trim();
+  try{ return JSON.parse(t); }catch{}
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if(a>=0 && b>a){ try{ return JSON.parse(t.slice(a,b+1)); }catch{} }
+  throw fail("invalid_json");
+}
+
+async function askGemini(prompt, files, signal){
+  if(!apiKey) throw fail("no_key");
+  const parts = [];
+  for(const f of files) parts.push({inline_data:{mime_type:"image/jpeg", data: await toJpegBase64(f)}});
+  parts.push({text: prompt});
+  const body = JSON.stringify({
+    contents:[{role:"user", parts}],
+    generationConfig:{responseMimeType:"application/json", temperature:0.7}
+  });
+  let last = null;
+  for(const model of MODELS){
+    let res;
+    try{
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method:"POST", signal, body,
+        headers:{"Content-Type":"application/json","x-goog-api-key":apiKey}
+      });
+    }catch(e){
+      if(e?.name === "AbortError") throw fail("cancelled");
+      throw fail(navigator.onLine===false ? "offline" : "network");
+    }
+    if(res.ok){
+      const data = await res.json();
+      if(data?.promptFeedback?.blockReason) throw fail("refused");
+      const cand = data?.candidates?.[0];
+      const text = (cand?.content?.parts||[]).map(p=>p.text||"").join("");
+      if(!text) throw fail(cand?.finishReason==="SAFETY" ? "refused" : "invalid_json");
+      return parseJson(text);
+    }
+    let msg = ""; try{ msg = (await res.json())?.error?.message || ""; }catch{}
+    if(res.status===400 && /api key/i.test(msg)) throw fail("bad_key");
+    if(res.status===401 || res.status===403) throw fail("bad_key");
+    if(res.status===400 && /image|inline/i.test(msg)) throw fail("image_rejected");
+    last = fail(res.status===429 ? "rate_limited" : "http", `${res.status} ${msg}`.trim());
+    if([404,429,500,503].includes(res.status)) continue;
+    throw last;
+  }
+  throw last || fail("http");
+}
+
+function normRecipes(arr){
+  return (Array.isArray(arr)?arr:[]).slice(0,3).map(r=>({
+    title:String(r.title||"名前なし"), desc:String(r.desc||""),
+    time:Number.parseInt(r.time)||"?", kcal:Number.parseInt(r.kcal)||"?", servings:Number.parseInt(r.servings)||"",
+    uses:(r.uses||[]).map(String), extra:(r.extra||[]).map(String), steps:(r.steps||[]).map(String), tip:String(r.tip||"")
+  }));
+}
+
+async function run(withImage){
+  ctl = new AbortController(); updateButtons();
+  setStatus("");
+  const n = photos.length;
+  $("busyText").textContent = withImage ? (n>1 ? `${n}枚の写真から食材を探しています` : "写真から食材を探しています") : "レシピを考えています";
+  const conds = conditions().map(c=>"- "+c).join("\n");
+  let prompt;
+  if(withImage){
+    const intro = n>1
+      ? `添付画像は${n}枚で、すべて同じ家の冷蔵庫（段ごと・ドアポケット・野菜室・冷凍庫など）や食材を写した写真です。${n}枚をまとめて1つの冷蔵庫の中身として扱ってください。複数の写真に同じ物が写っている場合は二重に数えず1つにまとめること。`
+      : `添付画像は冷蔵庫（または食材を並べた）写真です。`;
+    prompt = `${intro}家庭料理のアシスタントとして答えてください。
+1. 写っている食材をすべて日本語で挙げる。量の目安も推定する。はっきり見えないものは sure を false にする。調味料ボトルは食材に含めない。
+2. その食材で作れるレシピを提案する。条件:
+${conds}
+
+次のJSONだけを返してください:
+{"ingredients": [{"name": 食材名, "amount": 量の目安, "sure": true/false}, ...],
+${RECIPE_SPEC}}
+食材が1つも見つからない場合は {"ingredients": [], "recipes": []} を返す。`;
+  }else{
+    const list = state.ingredients.map(g=>`- ${g.name}${g.amount?`（${g.amount}）`:""}`).join("\n");
+    prompt = `家庭料理のアシスタントとして答えてください。冷蔵庫にある食材は次のとおりです:
+${list}
+
+条件:
+${conds}
+
+次のJSONだけを返してください:
+{${RECIPE_SPEC}}`;
+  }
+  try{
+    const data = await askGemini(prompt, withImage ? photos.map(p=>p.file) : [], ctl.signal);
+    const recipes = normRecipes(data?.recipes);
+    if(withImage){
+      state.ingredients = (Array.isArray(data?.ingredients)?data.ingredients:[]).map(g=>({name:String(g.name||""),amount:String(g.amount||""),sure:g.sure!==false})).filter(g=>g.name);
+    }
+    state.recipes = recipes; state.isSample = false;
+    renderChips(); renderCards();
+    if(withImage && !state.ingredients.length){ setStatus("食材が見つかりませんでした。冷蔵庫の中がはっきり写った写真を試してください。", true); }
+    else {
+      const thumb = withImage ? await makeThumb(photos[0].file) : histThumb;
+      const list = loadHist();
+      list.unshift({at:Date.now(), thumb, photos: withImage ? n : 0, ingredients:state.ingredients, recipes:state.recipes});
+      const ok = saveHist(list.slice(0,20));
+      setStatus(ok ? "完了。履歴に保存しました。" : "完了。（このブラウザでは履歴を保存できませんでした）");
+      renderHistory();
+      $("cards").scrollIntoView({behavior:"smooth",block:"start"});
+    }
+  }catch(e){
+    if(e?.code !== "cancelled") setStatus(errCopy(e), true);
+    else setStatus("中止しました。");
+  }finally{
+    ctl = null; updateButtons();
+  }
+}
+$("go").addEventListener("click", () => run(true));
+$("regen").addEventListener("click", () => run(false));
+$("stop").addEventListener("click", () => ctl?.abort());
+
+/* ---------- boot ---------- */
+renderPhotos(); renderChips(); renderCards(); renderHistory(); updateButtons();
+setStatus("下のレシピは表示例です。写真を選ぶと、あなたの冷蔵庫の中身で作り直します。");
+
+function renderKey(){
+  $("keyNeed").hidden = !!apiKey; $("keyOk").hidden = !apiKey;
+  $("keyBox").classList.toggle("need", !apiKey);
+  $("maxNote").textContent = `1回に${maxCount}枚まで送れます。`;
+  updateButtons();
+}
+$("keyForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("keyInput").value.trim(); if(!v) return;
+  apiKey = v; $("keyInput").value = "";
+  try{ localStorage.setItem(KEY_KEY, v); setStatus("キーを保存しました。写真を選んでください。"); }
+  catch{ setStatus("キーを設定しました（このブラウザでは保存できないため、閉じると消えます）。"); }
+  renderKey();
+});
+$("keyClear").addEventListener("click", () => {
+  apiKey = ""; try{ localStorage.removeItem(KEY_KEY); }catch{}
+  renderKey(); $("keyInput").focus();
+});
+renderKey();
+})();
+</script>
+</body>
+</html>
