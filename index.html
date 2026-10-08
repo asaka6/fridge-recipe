@@ -89,6 +89,9 @@ input[type=range]{accent-color:var(--herb);width:100%;min-width:0;margin:0}
 .toggles{display:flex;flex-wrap:wrap;gap:8px}
 .toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;user-select:none}
 .toggle input{accent-color:var(--herb)}
+.toggle:has(input:checked){background:var(--herb-soft);border-color:var(--herb)}
+.cats{display:grid;gap:6px}
+.cats .hint{font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0}
 
 button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px}
 button:focus-visible{outline:3px solid var(--herb);outline-offset:2px}
@@ -233,6 +236,18 @@ details ol{margin:8px 0 0;padding-left:1.4em;display:grid;gap:4px;max-width:65ch
           <label class="toggle"><input type="checkbox" id="onlyFridge"> 買い足しなし</label>
           <label class="toggle"><input type="checkbox" id="oneServing" checked> 1人分</label>
         </div>
+        <div class="cats" role="group" aria-labelledby="catLabel">
+          <span class="label" id="catLabel">料理の種類 <span class="hint">複数選択可・選ばなければおまかせ</span></span>
+          <div class="toggles" id="cats">
+            <label class="toggle"><input type="checkbox" value="主菜（おかず）"> おかず</label>
+            <label class="toggle"><input type="checkbox" value="副菜・サラダ"> 副菜・サラダ</label>
+            <label class="toggle"><input type="checkbox" value="汁物・スープ"> 汁物</label>
+            <label class="toggle"><input type="checkbox" value="ご飯もの・麺・パン"> ご飯・麺</label>
+            <label class="toggle"><input type="checkbox" value="デザート・おやつ"> デザート</label>
+            <label class="toggle"><input type="checkbox" value="おつまみ"> おつまみ</label>
+            <label class="toggle"><input type="checkbox" value="お弁当のおかず"> お弁当</label>
+          </div>
+        </div>
       </div>
 
       <button class="primary" id="go" disabled>食材を読み取ってレシピを出す</button>
@@ -290,9 +305,9 @@ const SAMPLE = {
     {name:"納豆",amount:"2パック",sure:true},{name:"ねぎ",amount:"1本",sure:false}
   ],
   recipes:[
-    {title:"豚キャベツのしょうが焼き炒め",desc:"フライパン1つ、ご飯が進む甘辛味。",time:15,kcal:480,uses:["豚こま肉 100g","キャベツ 1/8玉","にんじん 1/3本"],extra:["しょうがチューブ","しょうゆ・みりん"],steps:["キャベツはざく切り、にんじんは短冊切りにする。","豚肉を中火で炒め、色が変わったら野菜を加える。","しょうゆ・みりん各大さじ1としょうがを入れて絡める。"],tip:"豚肉に片栗粉を薄くまぶすとタレがよく絡みます。"},
-    {title:"納豆ねぎ入りふわふわ卵焼き",desc:"朝ごはんにもお弁当にも。",time:10,kcal:290,uses:["卵 2個","納豆 1パック","ねぎ 5cm"],extra:["付属のタレ"],steps:["卵を溶き、納豆とタレ、刻んだねぎを混ぜる。","油を熱したフライパンに流し、大きく混ぜて半熟で巻く。"],tip:"納豆は先によく混ぜて粘りを出すとまとまりやすいです。"},
-    {title:"キャベツとにんじんのミルクスープ",desc:"牛乳でまろやか、野菜をたっぷり消費。",time:20,kcal:250,uses:["キャベツ 1/8玉","にんじん 1/3本","牛乳 200ml","ピーマン 1個"],extra:["コンソメ","塩こしょう"],steps:["野菜を1cm角に切る。","水150mlとコンソメで5分煮る。","牛乳を加えて温め、塩こしょうで味を整える（沸騰させない）。"],tip:"豚肉を少し入れると主菜にもなります。"}
+    {title:"豚キャベツのしょうが焼き炒め",category:"主菜",desc:"フライパン1つ、ご飯が進む甘辛味。",time:15,kcal:480,uses:["豚こま肉 100g","キャベツ 1/8玉","にんじん 1/3本"],extra:["しょうがチューブ","しょうゆ・みりん"],steps:["キャベツはざく切り、にんじんは短冊切りにする。","豚肉を中火で炒め、色が変わったら野菜を加える。","しょうゆ・みりん各大さじ1としょうがを入れて絡める。"],tip:"豚肉に片栗粉を薄くまぶすとタレがよく絡みます。"},
+    {title:"納豆ねぎ入りふわふわ卵焼き",category:"副菜",desc:"朝ごはんにもお弁当にも。",time:10,kcal:290,uses:["卵 2個","納豆 1パック","ねぎ 5cm"],extra:["付属のタレ"],steps:["卵を溶き、納豆とタレ、刻んだねぎを混ぜる。","油を熱したフライパンに流し、大きく混ぜて半熟で巻く。"],tip:"納豆は先によく混ぜて粘りを出すとまとまりやすいです。"},
+    {title:"キャベツとにんじんのミルクスープ",category:"汁物",desc:"牛乳でまろやか、野菜をたっぷり消費。",time:20,kcal:250,uses:["キャベツ 1/8玉","にんじん 1/3本","牛乳 200ml","ピーマン 1個"],extra:["コンソメ","塩こしょう"],steps:["野菜を1cm角に切る。","水150mlとコンソメで5分煮る。","牛乳を加えて温め、塩こしょうで味を整える（沸騰させない）。"],tip:"豚肉を少し入れると主菜にもなります。"}
   ]
 };
 
@@ -350,6 +365,7 @@ function renderCards(){
         </div>
       </div>
       <div class="meta">
+        ${r.category?`<span>${esc(r.category)}</span>`:""}
         <span>⏱ ${esc(r.time)}分</span>
         <span>${esc(r.kcal)}kcal</span>
         ${r.servings?`<span>${esc(r.servings)}人分</span>`:""}
@@ -470,10 +486,14 @@ function conditions(){
   if(k<1200) c.push(`1人分のカロリーは${k}kcal以下`);
   if($("onlyFridge").checked) c.push("調味料（塩・砂糖・しょうゆ・味噌・酢・油・コンソメなど）以外の買い足しは一切しない");
   c.push($("oneServing").checked ? "分量は1人分" : "分量は2人分");
+  const cats = [...document.querySelectorAll("#cats input:checked")].map(i=>i.value);
+  if(cats.length===1) c.push(`3案はすべて「${cats[0]}」にする`);
+  else if(cats.length>1) c.push(`3案はすべて次の種類のどれかにし、なるべく種類をばらけさせる: ${cats.join("、")}`);
+  else c.push("3案は主菜・副菜・汁物など種類をばらけさせる");
   return c;
 }
-const RECIPE_SPEC = `"recipes": ちょうど3件。それぞれ {"title": 料理名, "desc": 一言説明(30字以内), "time": 調理時間(分,整数), "kcal": 1人分の推定カロリー(整数), "servings": 人数(整数), "uses": ["冷蔵庫の食材 分量", ...], "extra": ["使う調味料や買い足す物", ...], "steps": ["手順", ...(3〜6個)], "tip": コツ一言}
-3案は主菜・副菜・汁物など種類をばらけさせ、写っている食材をなるべく多く使うこと。`;
+const RECIPE_SPEC = `"recipes": ちょうど3件。それぞれ {"title": 料理名, "desc": 一言説明(30字以内), "time": 調理時間(分,整数), "kcal": 1人分の推定カロリー(整数), "servings": 人数(整数), "category": 料理の種類(主菜/副菜/汁物/ご飯・麺/デザート/おつまみ など短く), "uses": ["冷蔵庫の食材 分量", ...], "extra": ["使う調味料や買い足す物", ...], "steps": ["手順", ...(3〜6個)], "tip": コツ一言}
+料理の種類は条件に従い、写っている食材をなるべく多く使うこと。`;
 
 function errCopy(e){
   switch(e?.code){
@@ -556,7 +576,7 @@ async function askGemini(prompt, files, signal){
 function normRecipes(arr){
   return (Array.isArray(arr)?arr:[]).slice(0,3).map(r=>({
     title:String(r.title||"名前なし"), desc:String(r.desc||""),
-    time:Number.parseInt(r.time)||"?", kcal:Number.parseInt(r.kcal)||"?", servings:Number.parseInt(r.servings)||"",
+    time:Number.parseInt(r.time)||"?", kcal:Number.parseInt(r.kcal)||"?", servings:Number.parseInt(r.servings)||"", category:String(r.category||""),
     uses:(r.uses||[]).map(String), extra:(r.extra||[]).map(String), steps:(r.steps||[]).map(String), tip:String(r.tip||"")
   }));
 }
