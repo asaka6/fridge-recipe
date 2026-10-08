@@ -517,12 +517,12 @@ async function toJpegBase64(file){
   let bmp;
   try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
   catch{ throw fail("image_rejected"); }
-  const max = 1600, r = Math.min(1, max/Math.max(bmp.width, bmp.height));
+  const max = 1280, r = Math.min(1, max/Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas");
   c.width = Math.round(bmp.width*r); c.height = Math.round(bmp.height*r);
   c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
   bmp.close?.();
-  return c.toDataURL("image/jpeg", 0.85).split(",")[1];
+  return c.toDataURL("image/jpeg", 0.8).split(",")[1];
 }
 
 function parseJson(text){
@@ -533,42 +533,49 @@ function parseJson(text){
   throw fail("invalid_json");
 }
 
-async function askGemini(prompt, files, signal){
+// thinking: "minimal" | "low" — Gemini thinks at length by default, which is most of the wait.
+async function askGemini(prompt, files, signal, thinking){
   if(!apiKey) throw fail("no_key");
-  const parts = [];
-  for(const f of files) parts.push({inline_data:{mime_type:"image/jpeg", data: await toJpegBase64(f)}});
+  const imgs = await Promise.all(files.map(toJpegBase64));
+  const parts = imgs.map(data=>({inline_data:{mime_type:"image/jpeg", data}}));
   parts.push({text: prompt});
-  const body = JSON.stringify({
+  const makeBody = withThinking => JSON.stringify({
     contents:[{role:"user", parts}],
-    generationConfig:{responseMimeType:"application/json", temperature:0.7}
+    generationConfig:{responseMimeType:"application/json", temperature:0.7,
+      ...(withThinking && thinking ? {thinkingConfig:{thinkingLevel:thinking}} : {})}
   });
   let last = null;
   for(const model of MODELS){
-    let res;
-    try{
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method:"POST", signal, body,
-        headers:{"Content-Type":"application/json","x-goog-api-key":apiKey}
-      });
-    }catch(e){
-      if(e?.name === "AbortError") throw fail("cancelled");
-      throw fail(navigator.onLine===false ? "offline" : "network");
+    // A model that rejects thinkingLevel gets one retry without it.
+    for(const withThinking of [true, false]){
+      const body = makeBody(withThinking);
+      let res;
+      try{
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method:"POST", signal, body,
+          headers:{"Content-Type":"application/json","x-goog-api-key":apiKey}
+        });
+      }catch(e){
+        if(e?.name === "AbortError") throw fail("cancelled");
+        throw fail(navigator.onLine===false ? "offline" : "network");
+      }
+      if(res.ok){
+        const data = await res.json();
+        if(data?.promptFeedback?.blockReason) throw fail("refused");
+        const cand = data?.candidates?.[0];
+        const text = (cand?.content?.parts||[]).map(p=>p.text||"").join("");
+        if(!text) throw fail(cand?.finishReason==="SAFETY" ? "refused" : "invalid_json");
+        return parseJson(text);
+      }
+      let msg = ""; try{ msg = (await res.json())?.error?.message || ""; }catch{}
+      if(res.status===400 && withThinking && /thinking/i.test(msg)) continue;
+      if(res.status===400 && /api key/i.test(msg)) throw fail("bad_key");
+      if(res.status===401 || res.status===403) throw fail("bad_key");
+      if(res.status===400 && /image|inline/i.test(msg)) throw fail("image_rejected");
+      last = fail(res.status===429 ? "rate_limited" : "http", `${res.status} ${msg}`.trim());
+      if([404,429,500,503].includes(res.status)) break;
+      throw last;
     }
-    if(res.ok){
-      const data = await res.json();
-      if(data?.promptFeedback?.blockReason) throw fail("refused");
-      const cand = data?.candidates?.[0];
-      const text = (cand?.content?.parts||[]).map(p=>p.text||"").join("");
-      if(!text) throw fail(cand?.finishReason==="SAFETY" ? "refused" : "invalid_json");
-      return parseJson(text);
-    }
-    let msg = ""; try{ msg = (await res.json())?.error?.message || ""; }catch{}
-    if(res.status===400 && /api key/i.test(msg)) throw fail("bad_key");
-    if(res.status===401 || res.status===403) throw fail("bad_key");
-    if(res.status===400 && /image|inline/i.test(msg)) throw fail("image_rejected");
-    last = fail(res.status===429 ? "rate_limited" : "http", `${res.status} ${msg}`.trim());
-    if([404,429,500,503].includes(res.status)) continue;
-    throw last;
   }
   throw last || fail("http");
 }
@@ -585,51 +592,44 @@ async function run(withImage){
   ctl = new AbortController(); updateButtons();
   setStatus("");
   const n = photos.length;
-  $("busyText").textContent = withImage ? (n>1 ? `${n}枚の写真から食材を探しています` : "写真から食材を探しています") : "レシピを考えています";
-  const conds = conditions().map(c=>"- "+c).join("\n");
-  let prompt;
-  if(withImage){
-    const intro = n>1
-      ? `添付画像は${n}枚で、すべて同じ家の冷蔵庫（段ごと・ドアポケット・野菜室・冷凍庫など）や食材を写した写真です。${n}枚をまとめて1つの冷蔵庫の中身として扱ってください。複数の写真に同じ物が写っている場合は二重に数えず1つにまとめること。`
-      : `添付画像は冷蔵庫（または食材を並べた）写真です。`;
-    prompt = `${intro}家庭料理のアシスタントとして答えてください。
-1. 写っている食材をすべて日本語で挙げる。量の目安も推定する。はっきり見えないものは sure を false にする。調味料ボトルは食材に含めない。
-2. その食材で作れるレシピを提案する。条件:
-${conds}
-
+  try{
+    // Step 1 (photo only): list ingredients alone — short answer, minimal thinking, shown as soon as it arrives.
+    if(withImage){
+      $("busyText").textContent = n>1 ? `${n}枚の写真から食材を探しています` : "写真から食材を探しています";
+      const intro = n>1
+        ? `添付画像は${n}枚で、すべて同じ家の冷蔵庫（段ごと・ドアポケット・野菜室・冷凍庫など）や食材を写した写真です。${n}枚をまとめて1つの冷蔵庫の中身として扱ってください。複数の写真に同じ物が写っている場合は二重に数えず1つにまとめること。`
+        : `添付画像は冷蔵庫（または食材を並べた）写真です。`;
+      const data = await askGemini(`${intro}
+写っている食材をすべて日本語で挙げ、量の目安も推定してください。はっきり見えないものは sure を false にする。調味料ボトルは食材に含めない。
 次のJSONだけを返してください:
-{"ingredients": [{"name": 食材名, "amount": 量の目安, "sure": true/false}, ...],
-${RECIPE_SPEC}}
-食材が1つも見つからない場合は {"ingredients": [], "recipes": []} を返す。`;
-  }else{
+{"ingredients": [{"name": 食材名, "amount": 量の目安, "sure": true/false}, ...]}
+食材が1つも見つからない場合は {"ingredients": []} を返す。`, photos.map(p=>p.file), ctl.signal, "minimal");
+      state.ingredients = (Array.isArray(data?.ingredients)?data.ingredients:[]).map(g=>({name:String(g.name||""),amount:String(g.amount||""),sure:g.sure!==false})).filter(g=>g.name);
+      renderChips();
+      if(!state.ingredients.length){ setStatus("食材が見つかりませんでした。冷蔵庫の中がはっきり写った写真を試してください。", true); return; }
+      setStatus(`食材${state.ingredients.length}品が見つかりました。続けてレシピを考えています。`);
+    }
+    // Step 2: recipes from the ingredient list (text only).
+    $("busyText").textContent = "レシピを考えています";
     const list = state.ingredients.map(g=>`- ${g.name}${g.amount?`（${g.amount}）`:""}`).join("\n");
-    prompt = `家庭料理のアシスタントとして答えてください。冷蔵庫にある食材は次のとおりです:
+    const conds = conditions().map(c=>"- "+c).join("\n");
+    const data = await askGemini(`家庭料理のアシスタントとして答えてください。冷蔵庫にある食材は次のとおりです:
 ${list}
 
 条件:
 ${conds}
 
 次のJSONだけを返してください:
-{${RECIPE_SPEC}}`;
-  }
-  try{
-    const data = await askGemini(prompt, withImage ? photos.map(p=>p.file) : [], ctl.signal);
-    const recipes = normRecipes(data?.recipes);
-    if(withImage){
-      state.ingredients = (Array.isArray(data?.ingredients)?data.ingredients:[]).map(g=>({name:String(g.name||""),amount:String(g.amount||""),sure:g.sure!==false})).filter(g=>g.name);
-    }
-    state.recipes = recipes; state.isSample = false;
-    renderChips(); renderCards();
-    if(withImage && !state.ingredients.length){ setStatus("食材が見つかりませんでした。冷蔵庫の中がはっきり写った写真を試してください。", true); }
-    else {
-      const thumb = withImage ? await makeThumb(photos[0].file) : histThumb;
-      const list = loadHist();
-      list.unshift({at:Date.now(), thumb, photos: withImage ? n : 0, ingredients:state.ingredients, recipes:state.recipes});
-      const ok = saveHist(list.slice(0,20));
-      setStatus(ok ? "完了。履歴に保存しました。" : "完了。（このブラウザでは履歴を保存できませんでした）");
-      renderHistory();
-      $("cards").scrollIntoView({behavior:"smooth",block:"start"});
-    }
+{${RECIPE_SPEC}}`, [], ctl.signal, "low");
+    state.recipes = normRecipes(data?.recipes); state.isSample = false;
+    renderCards();
+    const thumb = withImage ? await makeThumb(photos[0].file) : histThumb;
+    const hist = loadHist();
+    hist.unshift({at:Date.now(), thumb, photos: withImage ? n : 0, ingredients:state.ingredients, recipes:state.recipes});
+    const ok = saveHist(hist.slice(0,20));
+    setStatus(ok ? "完了。履歴に保存しました。" : "完了。（このブラウザでは履歴を保存できませんでした）");
+    renderHistory();
+    $("cards").scrollIntoView({behavior:"smooth",block:"start"});
   }catch(e){
     if(e?.code !== "cancelled") setStatus(errCopy(e), true);
     else setStatus("中止しました。");
